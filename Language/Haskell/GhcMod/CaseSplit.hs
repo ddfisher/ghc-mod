@@ -47,7 +47,7 @@ splits file lineNo colNo = ghandle handler body
              let varName' = showName dflag style varName  -- Convert name to string
              text <- genCaseSplitTextFile file (SplitToTextInfo varName' bndLoc varLoc $
                                                 getTyCons dflag style varName varT)
-             return (fourInts bndLoc, text)
+             return ("found", fourInts bndLoc, [text])
     handler (SomeException _) = emptyResult =<< options
 
 ----------------------------------------------------------------
