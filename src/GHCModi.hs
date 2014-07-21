@@ -24,6 +24,7 @@ import Control.Concurrent (forkIO, MVar, newEmptyMVar, putMVar, readMVar)
 import Control.Exception (SomeException(..), Exception)
 import qualified Control.Exception as E
 import Control.Monad (when, void)
+import Control.Arrow (first)
 import CoreMonad (liftIO)
 import Data.List (find)
 import Data.Maybe (fromMaybe)
@@ -149,7 +150,8 @@ checkStx :: IOish m
          => Set FilePath
          -> FilePath
          -> GhcModT m (String, Bool, Set FilePath)
-checkStx set file = do
+checkStx set file' = do
+    let file = unescape file'
     set' <- newFileSet set file
     let files = S.toList set'
     eret <- check files
@@ -225,7 +227,7 @@ showInfo :: IOish m
          -> FilePath
          -> GhcModT m (String, Bool, Set FilePath)
 showInfo set fileArg = do
-    let [file, expr] = words fileArg
+    let [file, expr] = fileTokens fileArg
     set' <- newFileSet set file
     ret <- info file expr
     return (ret, True, set')
@@ -235,7 +237,7 @@ showType :: IOish m
          -> FilePath
          -> GhcModT m (String, Bool, Set FilePath)
 showType set fileArg  = do
-    let [file, line, column] = words fileArg
+    let [file, line, column] = fileTokens fileArg
     set' <- newFileSet set file
     ret <- types file (read line) (read column)
     return (ret, True, set')
@@ -245,7 +247,7 @@ doSplit :: IOish m
         -> FilePath
         -> GhcModT m (String, Bool, Set FilePath)
 doSplit set fileArg  = do
-    let [file, line, column] = words fileArg
+    let [file, line, column] = fileTokens fileArg
     set' <- newFileSet set file
     ret <- splits file (read line) (read column)
     return (ret, True, set')
@@ -255,7 +257,7 @@ doSig :: IOish m
       -> FilePath
       -> GhcModT m (String, Bool, Set FilePath)
 doSig set fileArg  = do
-    let [file, line, column] = words fileArg
+    let [file, line, column] = fileTokens fileArg
     set' <- newFileSet set file
     ret <- sig file (read line) (read column)
     return (ret, True, set')
@@ -276,3 +278,21 @@ browseIt :: IOish m
 browseIt set mdl = do
     ret <- browse mdl
     return (ret, True, set)
+
+----------------------------------------------------------------
+
+fileTokens :: String -> [String]
+fileTokens [] = []
+fileTokens str = let (file, rest) = token str in
+                   file : words rest
+
+token :: String -> (String, String)
+token ""          = ("", "")
+token (' ' :  cs) = ("", cs)
+token ('\\':c:cs) = first (c:) $ token cs
+token (c   :  cs) = first (c:) $ token cs
+
+unescape :: String -> String
+unescape "" = ""
+unescape ('\\':c:cs) = (c:) $ unescape cs
+unescape (c   :  cs) = (c:) $ unescape cs
